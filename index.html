@@ -1,1 +1,52 @@
 <!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8" /> <title>Simple 2D Animation Maker</title> <style> body { margin: 0; font-family: system-ui, sans-serif; background: #0b0c10; color: #f5f5f5; display: flex; height: 100vh; } .sidebar { width: 280px; background: #1f2833; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid #45a29e33; } .sidebar h2 { margin: 0 0 8px; font-size: 18px; } .sidebar label { font-size: 13px; opacity: 0.9; } .sidebar input[type="file"], .sidebar input[type="number"], .sidebar button, .sidebar select { width: 100%; margin-top: 4px; padding: 6px 8px; border-radius: 4px; border: 1px solid #45a29e55; background: #0b0c10; color: #f5f5f5; font-size: 13px; box-sizing: border-box; } .sidebar button { cursor: pointer; background: #45a29e; border: none; color: #0b0c10; font-weight: 600; margin-top: 8px; } .sidebar button:hover { background: #66fcf1; } .main { flex: 1; display: flex; flex-direction: column; background: #0b0c10; } .canvas-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #45a29e33; background: radial-gradient(circle at top, #1f2833 0, #0b0c10 55%); } canvas { background: #0b0c10; border: 1px solid #45a29e55; border-radius: 8px; } .timeline { height: 140px; padding: 10px 16px; box-sizing: border-box; background: #1f2833; display: flex; flex-direction: column; gap: 8px; } .timeline-header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; } .frames { flex: 1; display: flex; gap: 4px; overflow-x: auto; padding-top: 4px; } .frame { min-width: 40px; height: 60px; border-radius: 4px; border: 1px solid #45a29e55; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; background: #0b0c10; color: #c5c6c7; } .frame.active { border-color: #66fcf1; background: #0b0c10; color: #66fcf1; box-shadow: 0 0 0 1px #66fcf155; } .controls { display: flex; gap: 8px; align-items: center; font-size: 13px; } .controls button { padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; background: #45a29e; color: #0b0c10; font-weight: 600; font-size: 12px; } .controls button:hover { background: #66fcf1; } .small-input { width: 60px; } </style> </head> <body> <div class="sidebar"> <h2>Animation Settings</h2> <div> <label>Upload character image</label> <input type="file" id="imageInput" accept="image/*" /> </div> <div> <label>Style preset (visual only)</label> <select id="styleSelect"> <option value="normal">Normal</option> <option value="toon">Toon / Cartoon</option> <option value="soft">Soft / Pastel</option> <option value="noir">Noir / High contrast</option> </select> </div> <div> <label>Frames per second (FPS)</label> <input type="number" id="fpsInput" value="8" min="1" max="60" /> </div> <div> <label>Frames in animation</label> <input type="number" id="frameCountInput" value="8" min="1" max="60" /> <button id="buildTimelineBtn">Build timeline</button> </div> <div> <label>Position offset for active frame</label> <input type="number" id="offsetXInput" class="small-input" value="0" /> X <input type="number" id="offsetYInput" class="small-input" value="0" /> Y <button id="saveFrameBtn">Save frame pose</button> </div> <p style="font-size: 11px; opacity: 0.8; margin-top: 8px;"> Tip: change X/Y, click a frame, hit “Save frame pose”, then press Play. </p> </div> <div class="main"> <div class="canvas-wrapper"> <canvas id="canvas" width="640" height="360"></canvas> </div> <div class="timeline"> <div class="timeline-header"> <span>Timeline</span> <div class="controls"> <button id="playBtn">Play</button> <button id="stopBtn">Stop</button> <span>Current frame: <span id="currentFrameLabel">1</span></span> </div> </div> <div class="frames" id="framesContainer"></div> </div> </div> <script> const canvas = document.getElementById("canvas"); const ctx = canvas.getContext("2d"); const imageInput = document.getElementById("imageInput"); const styleSelect = document.getElementById("styleSelect"); const fpsInput = document.getElementById("fpsInput"); const frameCountInput = document.getElementById("frameCountInput"); const buildTimelineBtn = document.getElementById("buildTimelineBtn"); const offsetXInput = document.getElementById("offsetXInput"); const offsetYInput = document.getElementById("offsetYInput"); const saveFrameBtn = document.getElementById("saveFrameBtn"); const playBtn = document.getElementById("playBtn"); const stopBtn = document.getElementById("stopBtn"); const framesContainer = document.getElementById("framesContainer"); const currentFrameLabel = document.getElementById("currentFrameLabel"); let characterImage = null; let frames = []; let activeFrameIndex = 0; let isPlaying = false; let lastTime = 0; let frameDuration = 1000 / Number(fpsInput.value); function createEmptyFrames(count) { frames = []; for (let i = 0; i < count; i++) { frames.push({ offsetX: 0, offsetY: 0, }); } } function rebuildTimelineUI() { framesContainer.innerHTML = ""; frames.forEach((_, index) => { const div = document.createElement("div"); div.className = "frame" + (index === activeFrameIndex ? " active" : ""); div.textContent = index + 1; div.addEventListener("click", () => { activeFrameIndex = index; currentFrameLabel.textContent = index + 1; updateFrameSelectionUI(); loadFrameOffsetsToInputs(); draw(); }); framesContainer.appendChild(div); }); } function updateFrameSelectionUI() { const children = framesContainer.children; for (let i = 0; i < children.length; i++) { children[i].classList.toggle("active", i === activeFrameIndex); } } function loadFrameOffsetsToInputs() { const frame = frames[activeFrameIndex]; offsetXInput.value = frame.offsetX; offsetYInput.value = frame.offsetY; } function applyStylePreset() { const style = styleSelect.value; switch (style) { case "toon": ctx.filter = "contrast(1.3) saturate(1.4)"; break; case "soft": ctx.filter = "brightness(1.1) saturate(0.9)"; break; case "noir": ctx.filter = "grayscale(1) contrast(1.4)"; break; default: ctx.filter = "none"; } } function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#0b0c10"; ctx.fillRect(0, 0, canvas.width, canvas.height); if (!characterImage) { ctx.fillStyle = "#c5c6c7"; ctx.font = "16px system-ui"; ctx.textAlign = "center"; ctx.fillText( "Upload a character image to start", canvas.width / 2, canvas.height / 2 ); return; } const frame = frames[activeFrameIndex] || { offsetX: 0, offsetY: 0 }; applyStylePreset(); const imgW = characterImage.width; const imgH = characterImage.height; const scale = Math.min( (canvas.width * 0.5) / imgW, (canvas.height * 0.7) / imgH ); const drawW = imgW * scale; const drawH = imgH * scale; const centerX = canvas.width / 2 + Number(frame.offsetX); const centerY = canvas.height / 2 + Number(frame.offsetY); ctx.drawImage( characterImage, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH ); ctx.filter = "none"; } function loop(timestamp) { if (!isPlaying) return; if (timestamp - lastTime >= frameDuration) { lastTime = timestamp; activeFrameIndex = (activeFrameIndex + 1) % frames.length; currentFrameLabel.textContent = activeFrameIndex + 1; updateFrameSelectionUI(); loadFrameOffsetsToInputs(); draw(); } requestAnimationFrame(loop); } imageInput.addEventListener("change", (e) => { const file = e.target.files[0]; if (!file) return; const img = new Image(); img.onload = () => { characterImage = img; draw(); }; img.src = URL.createObjectURL(file); }); buildTimelineBtn.addEventListener("click", () => { const count = Math.max(1, Math.min(60, Number(frameCountInput.value))); createEmptyFrames(count); activeFrameIndex = 0; currentFrameLabel.textContent = 1; rebuildTimelineUI(); loadFrameOffsetsToInputs(); draw(); }); saveFrameBtn.addEventListener("click", () => { if (!frames[activeFrameIndex]) return; frames[activeFrameIndex].offsetX = Number(offsetXInput.value); frames[activeFrameIndex].offsetY = Number(offsetYInput.value); draw(); }); fpsInput.addEventListener("change", () => { const fps = Math.max(1, Math.min(60, Number(fpsInput.value))); frameDuration = 1000 / fps; }); styleSelect.addEventListener("change", draw); playBtn.addEventListener("click", () => { if (frames.length === 0) return; if (isPlaying) return; isPlaying = true; lastTime = performance.now(); requestAnimationFrame(loop); }); stopBtn.addEventListener("click", () => { isPlaying = false; }); createEmptyFrames(8); rebuildTimelineUI(); loadFrameOffsetsToInputs(); draw(); </script> </body> </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animation Studio</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="app">
+    <header>
+      <h1>Animation Studio</h1>
+    </header>
+
+    <main>
+      <div class="left-panel">
+        <h2>Upload Character</h2>
+        <input type="file" id="characterUpload" accept="image/*" />
+
+        <h2>Animation Controls</h2>
+        <button id="addFrameBtn">Add Frame</button>
+        <button id="playBtn">Play</button>
+        <button id="stopBtn">Stop</button>
+
+        <h2>Style</h2>
+        <select id="styleSelect">
+          <option value="normal">Normal</option>
+          <option value="toon">Toon</option>
+          <option value="soft">Soft</option>
+          <option value="noir">Noir</option>
+        </select>
+      </div>
+
+      <div class="canvas-panel">
+        <canvas id="canvas" width="800" height="450"></canvas>
+      </div>
+
+      <div class="timeline-panel">
+        <h2>Timeline</h2>
+        <div id="timeline"></div>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="animationEngine.js"></script>
+  <script src="ui.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
